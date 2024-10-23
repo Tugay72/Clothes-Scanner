@@ -2,7 +2,7 @@ import { StatusBar } from 'expo-status-bar';
 import React, {useState, useRef, useEffect} from 'react';
 
 import { StyleSheet, Text, TouchableOpacity, View, Image, Alert } from 'react-native';
-import { CameraView, useCameraPermissions } from 'expo-camera';
+import { CameraView, useCameraPermissions, useMicrophonePermissions } from 'expo-camera';
 import * as MediaLibrary from 'expo-media-library';
 
 import CameraButton from './frontend/components/camera_button'
@@ -10,6 +10,7 @@ import CameraButton from './frontend/components/camera_button'
 export default function App() {
 
   const [cameraPermission, requestCameraPermission] = useCameraPermissions();
+  const [microphonePermission, requestMicrophonePermission] = useMicrophonePermissions();
   const [mediaLibraryPermision, requestMediaLibraryPermission] = MediaLibrary.usePermissions();
   const [cameraProps, setCameraProps] = useState({
     zoom: 0,
@@ -25,8 +26,9 @@ export default function App() {
 
   // Load the last saved image after permision change
   useEffect(() => {
-    if (cameraPermission && cameraPermission.granted && mediaLibraryPermision &&
-    mediaLibraryPermision.status === 'granted') {
+    if (cameraPermission && cameraPermission.granted &&
+       mediaLibraryPermision && mediaLibraryPermision.status === 'granted' &&
+       microphonePermission && microphonePermission.granted) {
         getLastSavedImage();
     }
   },  [cameraPermission, mediaLibraryPermision])
@@ -35,12 +37,12 @@ export default function App() {
     //permission are still loading
     return (
       <View style = {styles.container}>
-        <Text>Error</Text>
+        <Text>Permissions are loading...</Text>
       </View>
     );
   }
 
-  if (!cameraPermission.granted || mediaLibraryPermision.status !== 'granted'){
+  if (!cameraPermission.granted || mediaLibraryPermision.status !== 'granted' || !microphonePermission.granted){
     //permissions are not granted yet
     return (
       <View style = {styles.permissionContainer}>
@@ -50,6 +52,7 @@ export default function App() {
           onPress={() => {
             requestCameraPermission();
             requestMediaLibraryPermission();
+            requestMicrophonePermission();
           }}
         >
           <Text style = {styles.permissionButtonText}>Grant Permission</Text>
@@ -93,7 +96,7 @@ export default function App() {
     }
   }
 
-  //Get previous taken picture from 'DCIM' album created by expo
+  //Get previous taken picture from 'DCIM' album created by expo if doesnt exist
   const getLastSavedImage = async() => {
     if(mediaLibraryPermision && mediaLibraryPermision.status === 'granted') {
       const dcimAlbum = await MediaLibrary.getAlbumAsync('DCIM');
@@ -136,6 +139,7 @@ export default function App() {
             />
             <CameraButton 
               icon = 'flashlight-on'
+              color={cameraProps.enableTorch ? 'white' : '#404040'}
               onPress={() => toggleProperty('enableTorch', true, false)}
             />
           </View>
@@ -158,14 +162,14 @@ export default function App() {
               />
             </TouchableOpacity>
             <CameraButton
-              icon = 'camera'
+              icon = 'circle'
               size = {60}
               style={{height: 60}}
               onPress = {takePicture}
             />
             <CameraButton 
               icon = 'flip-camera-ios'
-              size={60}
+              size={40}
               style={{height: 60}}
               onPress={() => toggleProperty('facing', 'front', 'back')}
             />
@@ -201,14 +205,17 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#fff',
   },
+
   permissionContainer: {
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: '#fff',
   },
+
   topControlsContainer: {
     height: 100,
+    paddingTop: 30,
     backgroundColor: 'black',
     flexDirection: 'row',
     justifyContent: 'space-around',
@@ -221,8 +228,8 @@ const styles = StyleSheet.create({
   },
 
   bottomControlsContainer: {
-    height: 100,
-    padding: 10,
+    height: 120,
+    padding: 20,
     backgroundColor: 'black',
     flexDirection: 'row',
     justifyContent: 'space-around',
@@ -234,13 +241,16 @@ const styles = StyleSheet.create({
     margin: 10,
     borderRadius: 2
   },
+
   permissionButtonText: {
     color : 'white',
     fontSize: 16
   },
+
   previousImage: {
-    width: 60,
-    height: 60,
-    borderRadius: 50
+    marginTop: 5,
+    width: 50,
+    height: 50,
+    borderRadius: 30
   }
 });
