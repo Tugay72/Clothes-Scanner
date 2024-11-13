@@ -9,3 +9,4 @@ Currently used libraries :
 3. opencv-python:
    ```bash
    pip install opencv-python
+
