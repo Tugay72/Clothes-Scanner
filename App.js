@@ -1,5 +1,6 @@
 import { StatusBar } from 'expo-status-bar';
 import React, {useState, useRef, useEffect} from 'react';
+import axios from 'axios';
 
 import { StyleSheet, Text, TouchableOpacity, View, Image, Alert } from 'react-native';
 import { CameraView, useCameraPermissions, useMicrophonePermissions } from 'expo-camera';
@@ -20,9 +21,12 @@ export default function App() {
     enableTorch: false
   })
   const [image, setImage] = useState(null);
+  const [processedImage, setProcessedImage] = useState(null); // Store processed image
   const [previousImage, setPreviousImage] = useState(null);
 
   const cameraRef = useRef(null);
+
+  const [colorData, setColorData] = useState(null);
 
   // Load the last saved image after permision change
   useEffect(() => {
@@ -85,11 +89,14 @@ export default function App() {
   const savePicture = async() => {
     if (image) {
       try{
+        processImage();
+
         const asset = await MediaLibrary.createAssetAsync(image);
         const assetInfo = await MediaLibrary.getAssetInfoAsync(asset.id);
-        Alert.alert('Photo saved!', image);
+        Alert.alert('Photo saved!', `Image URI: ${image}`);
         setImage(null);
         getLastSavedImage();
+        
       }catch (err) {
         console.log('Error while saving the picture : ', err);
       }
@@ -121,7 +128,47 @@ export default function App() {
         setPreviousImage(null);
       }
     }
-  } 
+  }
+
+  // Send image to Flask API for processing
+  const processImage = async () => {
+    if (image) {
+      try {
+        const formData = new FormData();
+        formData.append('image', {
+          uri: image, // The URI of the image
+          type: 'image/jpeg', // Image type
+          name: 'photo.jpg', // A name for the file
+        });
+        //10.40.126.42:5000 okul agi
+        const response = await axios.post('http://192.168.1.110:5000/process-image', formData, {
+          headers: {
+            'Content-Type': 'multipart/form-data', // Content type: multipart/form-data
+          },
+        });
+  
+        console.log(response);
+        const { average_color, average_color_name } = response.data;
+
+        // Show an alert with color details
+        Alert.alert(
+          "Color Analysis",
+          `Average Color: ${average_color_name}\nRGB: ${average_color}`,
+          [
+            {
+              text: "OK",
+              style: "default"
+            }
+          ]
+        );
+        
+        setProcessedImage(response.data.processed_image);
+      } catch (err) {
+        console.error('Error processing image:', err);
+        Alert.alert('Processing Error', 'There was an issue processing the image.');
+      }
+    }
+  };
 
   return (
     <View style={styles.container}>

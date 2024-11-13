@@ -1,0 +1,4 @@
+Dominant Color (RGB): [36, 8, 13]
+Dom Name (Eng): black
+Avg Color (Eng): [52, 17, 30]
+Avg Name (Eng): black
