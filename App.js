@@ -148,17 +148,27 @@ export default function App() {
         });
   
         console.log(response);
-        const { average_color, average_color_name } = response.data;
-
-        // Show an alert with color details
+        const {
+          average_color,
+          average_color_name,
+          dominant_color,
+          dominant_color_name,
+          pattern,
+          pattern_confidence
+        } = response.data;
+        
+        // Show an alert with color and pattern details
         Alert.alert(
-          "Color Analysis",
-          `Average Color: ${average_color_name}\nRGB: ${average_color}`,
+          "Color & Pattern Analysis",
+          `Average Color: ${average_color_name}\n
+          Dominant Color: ${dominant_color_name}\n
+          Pattern: ${pattern}\n 
+          Confidence: ${pattern_confidence}`,
           [
             {
               text: "OK",
-              style: "default"
-            }
+              style: "default",
+            },
           ]
         );
         
