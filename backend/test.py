@@ -1,7 +1,10 @@
 import tensorflow as tf
 import numpy as np
 import os
-from tensorflow.keras.preprocessing.image import load_img, img_to_array  # type: ignore
+import cv2
+from tensorflow.keras.preprocessing.image import load_img, img_to_array # type: ignore
+from colornamer import get_color_from_rgb  # Assuming this is installed
+from math import sqrt
 
 # Path to the model
 model_path = "backend\\pattern_recognition_best_model.keras"
@@ -19,6 +22,7 @@ except ValueError as e:
 # Class labels
 classes = ['checkered', 'dotted', 'floral', 'solid', 'striped', 'zigzag']
 
+# Function to predict pattern from image
 def predict_pattern(image_path):
     # Check if the image file exists
     if not os.path.exists(image_path):
@@ -42,29 +46,78 @@ def predict_pattern(image_path):
 
     return predicted_class, confidence
 
-# Test the model
-image_path = r"backend\test_image1.jpg"
-image_path2 = r"backend\test_image2.jpg"
-image_path3 = r"backend\test_image3.jpg"
-image_path5 = r"backend\test_image5.jpg"
-image_path6 = r"backend\test_image6.jpg"
-image_path7 = r"backend\test_image7.jpg"
-image_path8 = r"backend\test_image8.jpg"
 
-try:
-    pattern, confidence = predict_pattern(image_path)
-    print(f"Pattern: {pattern}, Confidence: {confidence:.2f}%")
-    pattern, confidence = predict_pattern(image_path2)
-    print(f"Pattern: {pattern}, Confidence: {confidence:.2f}%")
-    pattern, confidence = predict_pattern(image_path3)
-    print(f"Pattern: {pattern}, Confidence: {confidence:.2f}%")
-    pattern, confidence = predict_pattern(image_path5)
-    print(f"Pattern: {pattern}, Confidence: {confidence:.2f}%")
-    pattern, confidence = predict_pattern(image_path6)
-    print(f"Pattern: {pattern}, Confidence: {confidence:.2f}%")
-    pattern, confidence = predict_pattern(image_path7)
-    print(f"Pattern: {pattern}, Confidence: {confidence:.2f}%")
-    pattern, confidence = predict_pattern(image_path8)
-    print(f"Pattern: {pattern}, Confidence: {confidence:.2f}%")
-except Exception as e:
-    print(f"An error occurred: {e}")
+# Function to find closest color name based on RGB values
+def get_closest_color_name(rgb_color):
+    color_info = get_color_from_rgb(rgb_color)
+    return color_info['color_family']
+
+
+# Function to process image and find dominant/average color
+def process_image_and_colors(image_path):
+    # Read the image using OpenCV
+    img = cv2.imread(image_path)
+    
+    # Check if the image was loaded correctly
+    if img is None:
+        raise ValueError("Failed to load image.")
+
+    # Convert image from BGR to RGB
+    img_rgb = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+
+    # Resize the image for faster processing
+    img_resized = cv2.resize(img_rgb, (480, 640))  # Resize for faster processing
+
+    # K-Means Clustering to find the dominant color
+    pixels = img_resized.reshape(-1, 3)  # Reshape the image to a list of pixels
+    k = 5  # Number of clusters
+    _, labels, centers = cv2.kmeans(pixels.astype(np.float32), k, None, 
+                                     (cv2.TERM_CRITERIA_EPS + cv2.TERM_CRITERIA_MAX_ITER, 10, 1.0), 
+                                     10, cv2.KMEANS_RANDOM_CENTERS)
+
+    # Get the dominant color (the one with the highest frequency)
+    dominant_color = centers[np.argmax(np.bincount(labels.flatten()))]
+    dominant_color_name = get_closest_color_name(tuple(dominant_color.astype(int)))
+
+    # Calculate center of the image
+    h, w, _ = img_resized.shape
+    center_x, center_y = w // 2, h // 2
+    size = 100
+    cropped_center = img_rgb[center_y - size // 2:center_y + size // 2,
+                             center_x - size // 2:center_x + size // 2]
+
+    # Average color of the cropped center
+    average_color = cropped_center.mean(axis=(0, 1)).astype(int)
+    average_color_name = get_closest_color_name(tuple(average_color))
+
+    return dominant_color, dominant_color_name, average_color, average_color_name
+
+
+# Main function to process images in folder and display results
+def process_images_in_folder():
+    # Get the current folder where the script is located
+    folder_path = os.path.dirname(os.path.abspath(__file__))
+
+    for file_name in os.listdir(folder_path):
+        file_path = os.path.join(folder_path, file_name)
+        
+        # Check if it's a file and has a valid image extension
+        if os.path.isfile(file_path) and file_path.lower().endswith(('.png', '.jpg', '.jpeg')):
+            try:
+                # Process the image and find colors
+                dominant_color, dominant_color_name, average_color, average_color_name = process_image_and_colors(file_path)
+                
+                # Get the pattern prediction
+                pattern, confidence = predict_pattern(file_path)
+
+                print(f"File: {file_name}")
+                print(f"Pattern: {pattern}, Confidence: {confidence:.2f}%")
+                print(f"Dominant Color (RGB): {dominant_color}, Name: {dominant_color_name}")
+                print(f"Average Color (RGB): {average_color}, Name: {average_color_name}")
+                print("-" * 50)
+            except Exception as e:
+                print(f"An error occurred for {file_name}: {e}")
+
+
+# Run the processing function for images in the folder
+process_images_in_folder()

@@ -2,20 +2,27 @@ import { StatusBar } from 'expo-status-bar';
 import React, {useState, useRef, useEffect} from 'react';
 import axios from 'axios';
 
+import * as Speech from 'expo-speech';
+import translate from 'translate';
+
+
 import { StyleSheet, Text, TouchableOpacity, View, Image, Alert } from 'react-native';
 import { CameraView, useCameraPermissions, useMicrophonePermissions } from 'expo-camera';
 import * as MediaLibrary from 'expo-media-library';
 
 import CameraButton from './frontend/components/camera_button'
 
-export default function App() {
+translate.engine = 'google';
 
+export default function App() {
+  
+  
   const [cameraPermission, requestCameraPermission] = useCameraPermissions();
   const [microphonePermission, requestMicrophonePermission] = useMicrophonePermissions();
   const [mediaLibraryPermision, requestMediaLibraryPermission] = MediaLibrary.usePermissions();
   const [cameraProps, setCameraProps] = useState({
     zoom: 0,
-    facing : 'front',
+    facing : 'back',
     flash: 'on',
     animateShutter: false,
     enableTorch: false
@@ -27,6 +34,7 @@ export default function App() {
   const cameraRef = useRef(null);
 
   const [colorData, setColorData] = useState(null);
+
 
   // Load the last saved image after permision change
   useEffect(() => {
@@ -79,6 +87,7 @@ export default function App() {
       try{
         const picture = await cameraRef.current.takePictureAsync();
         setImage(picture.uri);
+        processImage();
       } catch (err) {
         console.log('Error while taking picture!', err)
       }
@@ -140,8 +149,8 @@ export default function App() {
           type: 'image/jpeg', // Image type
           name: 'photo.jpg', // A name for the file
         });
-        //10.40.126.42:5000 okul agi
-        const response = await axios.post('http://192.168.1.110:5000/process-image', formData, {
+        //10.40.126.(..):5000 okul agi
+        const response = await axios.post('http://192.168.1.112:5000/process-image', formData, {
           headers: {
             'Content-Type': 'multipart/form-data', // Content type: multipart/form-data
           },
@@ -158,20 +167,31 @@ export default function App() {
         } = response.data;
         
         // Show an alert with color and pattern details
-        Alert.alert(
-          "Color & Pattern Analysis",
-          `Average Color: ${average_color_name}\n
-          Dominant Color: ${dominant_color_name}\n
-          Pattern: ${pattern}\n 
-          Confidence: ${pattern_confidence}`,
-          [
-            {
-              text: "OK",
-              style: "default",
-            },
-          ]
-        );
-        
+        // Alert.alert(
+        //   "Color & Pattern Analysis",
+        //   `Average Color: ${average_color_name}\n
+        //   Dominant Color: ${dominant_color_name}\n
+        //   Pattern: ${pattern}\n 
+        //   Confidence: ${pattern_confidence}`,
+        //   [
+        //     {
+        //       text: "OK",
+        //       style: "default",
+        //     },
+        //   ]
+        // );
+        const mergedString = `
+          Average Color: (${average_color_name}),
+          Dominant Color: (${dominant_color_name}),
+          Pattern: ${pattern} (Confidence: ${pattern_confidence}%)
+        `.trim();
+
+        console.log(mergedString);
+        const turkishText = await translate(mergedString, { to: 'tr' });
+
+        Speech.speak(turkishText, {
+          language: 'tr-TR', // Set to Turkish
+        });
         setProcessedImage(response.data.processed_image);
       } catch (err) {
         console.error('Error processing image:', err);
@@ -182,7 +202,7 @@ export default function App() {
 
   return (
     <View style={styles.container}>
-      {!image ? (
+      {/* {!image ? ( */}
         <>
           <View style = {styles.topControlsContainer}>
             <CameraButton 
@@ -211,28 +231,17 @@ export default function App() {
           />
 
           <View style = {styles.bottomControlsContainer}>
-            <TouchableOpacity onPress={() => previousImage && setImage(previousImage)}>
-
-              <Image 
-                source={{uri:previousImage}}
-                style={styles.previousImage}
-              />
-            </TouchableOpacity>
+            
             <CameraButton
               icon = 'circle'
-              size = {60}
-              style={{height: 60}}
+              size = {90}
+              style={{height: 90}}
               onPress = {takePicture}
             />
-            <CameraButton 
-              icon = 'flip-camera-ios'
-              size={40}
-              style={{height: 60}}
-              onPress={() => toggleProperty('facing', 'front', 'back')}
-            />
+            
           </View>
         </>
-      ) : (
+      {/* ) : (
         <>
           <Image 
             source = {{uri:image}} 
@@ -251,7 +260,8 @@ export default function App() {
             />
           </View>
         </>
-      )}
+      )} */
+      }
       
     </View>
   );
@@ -285,8 +295,8 @@ const styles = StyleSheet.create({
   },
 
   bottomControlsContainer: {
-    height: 120,
-    padding: 20,
+    height: 150,
+    padding: 30,
     backgroundColor: 'black',
     flexDirection: 'row',
     justifyContent: 'space-around',
