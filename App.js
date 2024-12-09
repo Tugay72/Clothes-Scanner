@@ -1,5 +1,6 @@
 import { StatusBar } from 'expo-status-bar';
 import React, {useState, useRef, useEffect} from 'react';
+import * as Animatable from 'react-native-animatable';
 import axios from 'axios';
 
 import * as Speech from 'expo-speech';
@@ -23,52 +24,74 @@ export default function App() {
   const [cameraProps, setCameraProps] = useState({
     zoom: 0,
     facing : 'back',
-    flash: 'on',
+    flash: 'off',
     animateShutter: false,
     enableTorch: false
   })
   const [image, setImage] = useState(null);
-  const [processedImage, setProcessedImage] = useState(null); // Store processed image
+  const [processedImage, setProcessedImage] = useState(null);
   const [previousImage, setPreviousImage] = useState(null);
 
   const cameraRef = useRef(null);
 
   const [colorData, setColorData] = useState(null);
+  const [showIntro, setShowIntro] = useState(true);
 
 
   // Load the last saved image after permision change
-  useEffect(() => {
-    if (cameraPermission && cameraPermission.granted &&
-       mediaLibraryPermision && mediaLibraryPermision.status === 'granted' &&
-       microphonePermission && microphonePermission.granted) {
-        getLastSavedImage();
-    }
-  },  [cameraPermission, mediaLibraryPermision])
+  // useEffect(() => {
+  //   if (cameraPermission && cameraPermission.granted &&
+  //      mediaLibraryPermision && mediaLibraryPermision.status === 'granted' &&
+  //      microphonePermission && microphonePermission.granted) {
+  //       getLastSavedImage();
+  //   }
+  // },  [cameraPermission, mediaLibraryPermision])
 
-  if(!cameraPermission || !mediaLibraryPermision){
-    //permission are still loading
+  useEffect(() => {
+    const handleIntroAndPermissions = async () => {
+      // Simulate animation duration
+      await new Promise(resolve => setTimeout(resolve, 3000)); // 3-second intro
+
+      // Request permissions
+      await requestCameraPermission();
+      await requestMediaLibraryPermission();
+      await requestMicrophonePermission();
+
+      // Update state
+      setShowIntro(false);
+      
+    };
+
+    handleIntroAndPermissions();
+  }, []);
+
+  if (showIntro) {
+    // Show animated intro
     return (
-      <View style = {styles.container}>
+      <View style={styles.permissionContainer}>
+        <Animatable.Image animation="fadeIn" iterationCount={1}></Animatable.Image>
+          <Image source={require('./assets/logo.png')} style={styles.introLogo}/>
+      </View>
+    );
+  }
+
+  if(!cameraPermission || !mediaLibraryPermision || !microphonePermission){
+    //Permission are still loading
+    return (
+      <View style = {styles.permissionContainer}>
         <Text>Permissions are loading...</Text>
       </View>
     );
   }
 
-  if (!cameraPermission.granted || mediaLibraryPermision.status !== 'granted' || !microphonePermission.granted){
-    //permissions are not granted yet
+  // Permissions not granted yet
+  if (!cameraPermission.granted || mediaLibraryPermision.status !== 'granted' || !microphonePermission.granted) {
+    // Permissions are not granted yet
     return (
-      <View style = {styles.permissionContainer}>
-        <Text>We need your permission to continue</Text>
-        <TouchableOpacity 
-          style = {styles.permissionButton}
-          onPress={() => {
-            requestCameraPermission();
-            requestMediaLibraryPermission();
-            requestMicrophonePermission();
-          }}
-        >
-          <Text style = {styles.permissionButtonText}>Grant Permission</Text>
-        </TouchableOpacity>
+      <View style={styles.permissionContainer}>
+        <Text style={styles.permissionText}>
+          Please grant all permissions to proceed.
+        </Text>
       </View>
     );
   }
@@ -82,17 +105,20 @@ export default function App() {
   }
 
   // Take pictures
-  const takePicture = async() => {
-    if(cameraRef.current) {
-      try{
+  const takePicture = async () => {
+    if (cameraRef.current) {
+      try {
         const picture = await cameraRef.current.takePictureAsync();
+        console.log("Picture URI:", picture.uri); // Debugging için URI'yi yazdır
         setImage(picture.uri);
-        processImage();
+        
+        // Görüntüyü işleme gönder
+        processImage(picture.uri); // Fonksiyona URI gönderiyoruz
       } catch (err) {
-        console.log('Error while taking picture!', err)
+        console.log("Error while taking picture!", err);
       }
     }
-  }
+  };
 
   // Save taken pictures
   const savePicture = async() => {
@@ -140,65 +166,52 @@ export default function App() {
   }
 
   // Send image to Flask API for processing
-  const processImage = async () => {
-    if (image) {
+  const processImage = async (imageUri) => {
+    if (imageUri) {
       try {
         const formData = new FormData();
-        formData.append('image', {
-          uri: image, // The URI of the image
-          type: 'image/jpeg', // Image type
-          name: 'photo.jpg', // A name for the file
+        formData.append("image", {
+          uri: imageUri,
+          type: "image/jpeg",
+          name: "photo.jpg",
         });
-        //10.40.126.(..):5000 okul agi
-        const response = await axios.post('http://192.168.1.112:5000/process-image', formData, {
+  
+        const response = await axios.post("http://192.168.1.112:5000/process-image", formData, {
           headers: {
-            'Content-Type': 'multipart/form-data', // Content type: multipart/form-data
+            "Content-Type": "multipart/form-data",
           },
         });
   
-        console.log(response);
+        console.log("Response from API:", response.data);
         const {
           average_color,
           average_color_name,
           dominant_color,
           dominant_color_name,
           pattern,
-          pattern_confidence
+          pattern_confidence,
         } = response.data;
-        
-        // Show an alert with color and pattern details
-        // Alert.alert(
-        //   "Color & Pattern Analysis",
-        //   `Average Color: ${average_color_name}\n
-        //   Dominant Color: ${dominant_color_name}\n
-        //   Pattern: ${pattern}\n 
-        //   Confidence: ${pattern_confidence}`,
-        //   [
-        //     {
-        //       text: "OK",
-        //       style: "default",
-        //     },
-        //   ]
-        // );
+  
+        // İşlenen veriyi konuşma ve gösterim için kullanın
         const mergedString = `
           Average Color: (${average_color_name}),
           Dominant Color: (${dominant_color_name}),
           Pattern: ${pattern} (Confidence: ${pattern_confidence}%)
         `.trim();
-
-        console.log(mergedString);
-        const turkishText = await translate(mergedString, { to: 'tr' });
-
+  
+        const turkishText = await translate(mergedString, { to: "tr" });
         Speech.speak(turkishText, {
-          language: 'tr-TR', // Set to Turkish
+          language: "tr-TR",
         });
+  
         setProcessedImage(response.data.processed_image);
       } catch (err) {
-        console.error('Error processing image:', err);
-        Alert.alert('Processing Error', 'There was an issue processing the image.');
+        console.error("Error processing image:", err);
+        Alert.alert("Processing Error", "There was an issue processing the image.");
       }
     }
   };
+  
 
   return (
     <View style={styles.container}>
@@ -275,9 +288,22 @@ const styles = StyleSheet.create({
 
   permissionContainer: {
     flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#fff',
+    justifyContent: 'center',  // Center content vertically
+    alignItems: 'center',  // Center content horizontally
+    backgroundColor: '#000',
+  },
+
+  intro: {
+    fontSize: 24,
+    color: 'black',
+    fontWeight: 'bold',
+    textAlign: 'center',  // Ensure text is centered
+  },
+
+  introLogo: {
+    width: 96,
+    height: 52,
+    marginBottom: 30,  // Add some space below the logo to avoid it being cut off
   },
 
   topControlsContainer: {
@@ -291,27 +317,17 @@ const styles = StyleSheet.create({
 
   camera: {
     flex: 1,
-    width: '100%'
+    width: '100%',
+    height: '100%',
   },
 
   bottomControlsContainer: {
     height: 150,
-    padding: 30,
+    paddingBottom: 30,
     backgroundColor: 'black',
     flexDirection: 'row',
     justifyContent: 'space-around',
-  },
-
-  permissionButton: {
-    backgroundColor: 'blue',
-    padding: 10,
-    margin: 10,
-    borderRadius: 2
-  },
-
-  permissionButtonText: {
-    color : 'white',
-    fontSize: 16
+    alignItems: 'center',
   },
 
   previousImage: {
@@ -321,3 +337,4 @@ const styles = StyleSheet.create({
     borderRadius: 30
   }
 });
+

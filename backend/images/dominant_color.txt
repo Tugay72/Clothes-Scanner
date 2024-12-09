@@ -1,4 +1,4 @@
-Dominant Color (RGB): [68, 6, 6]
-Dom Name (Eng): red violet
-Avg Color (Eng): [77, 7, 9]
-Avg Name (Eng): red violet
+Dominant Color (RGB): [134, 136, 136]
+Dom Name (Eng): grey
+Avg Color (Eng): [116, 125, 124]
+Avg Name (Eng): grey
