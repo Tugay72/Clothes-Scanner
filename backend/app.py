@@ -10,6 +10,51 @@ import time
 from io import BytesIO
 from PIL import Image
 
+base_color_mapping = {
+    "red": "red",
+    "orange": "orange",
+    "yellow": "yellow",
+    "green": "green",
+    "blue": "blue",
+    "purple": "purple",
+    "pink": "pink",
+    "brown": "brown",
+    "gray": "gray",
+    "black": "black",
+    "white": "white",
+    "khaki": "brown",
+    "red violet": "red",
+    "olive green": "green",
+    "lavender": "purple",
+    "dark orange": "orange",
+    "steel blue": "blue",
+    "slate gray": "gray",
+    "peru": "brown",
+    "light coral": "pink",
+    "misty rose": "pink",
+    "chocolate": "brown",
+    "lime green": "green",
+    "firebrick": "red",
+    "medium orchid": "purple",
+    "dark sea green": "green",
+    "green blue": "blue",
+    "violet blue": "purple",
+    "yellow green": "yellow",
+    "olive": "black",
+    "sienna": "brown",
+    "yellow orange": "yellow",
+    "orange yellow": "orange",
+    "blue green": "blue",
+    "red orange": "red",
+    "green yellow": "green",
+    "violet red": "red",
+    "grey": "gray",
+    "blue violet": "purple",
+    "orange red": "orange",
+    "yellow ochre": "yellow"
+}
+
+
 app = Flask(__name__)
 
 PROCESSED_IMAGE_DIR = 'images'
@@ -39,8 +84,11 @@ def get_closest_color_name(rgb_color):
 
     # Get the color info using colornamer for other cases
     color_info = get_color_from_rgb(rgb_color)
+    # Get the base color from the color family
+    color_family = color_info['color_family'].lower()  # Convert to lowercase for consistency
+    base_color = base_color_mapping.get(color_family, color_family)  # Default to original if no match
 
-    return color_info['color_family']
+    return base_color;
 
 
 def predict_pattern(pil_image):
@@ -79,9 +127,25 @@ def process_image_route():
         10, cv2.KMEANS_RANDOM_CENTERS
     )
 
-    # Get the dominant color
+    # Get the first dominant color (most frequent cluster center)
     dominant_color = centers[np.argmax(np.bincount(labels.flatten()))]
     dominant_color_name = get_closest_color_name(tuple(dominant_color.astype(int)))
+
+    # Get the second dominant color (second most frequent cluster center)
+
+    # Sort the cluster centers by frequency
+    color_counts = np.bincount(labels.flatten())
+    sorted_indices = np.argsort(color_counts)[::-1]  # Sort descending by frequency
+    second_dominant_color = centers[sorted_indices[1]]  # Second most frequent color
+    second_dominant_color_name = get_closest_color_name(tuple(second_dominant_color.astype(int)))
+
+    third_dominant_color = centers[sorted_indices[2]]  # Third most frequent color
+    third_dominant_color_name = get_closest_color_name(tuple(third_dominant_color.astype(int)))
+
+    # Print out the dominant and second dominant color details
+    print("Dominant color:", dominant_color_name)
+    print("Second dominant color:", second_dominant_color_name)
+    print("Second dominant color:", third_dominant_color_name)
 
     # Average color of the cropped center
     h, w, _ = img_rgb.shape
@@ -95,16 +159,32 @@ def process_image_route():
     # Run pattern recognition on the uploaded image
     pattern, confidence = predict_pattern(pil_image)
 
+
+    dominant_colors_list = []
+    if pattern == 'solid':
+        dominant_colors_list.append(dominant_color_name)
+    elif pattern == 'floral':
+        dominant_colors_list.extend([dominant_color_name, second_dominant_color_name, third_dominant_color_name])
+    else:
+        if dominant_color_name == second_dominant_color_name:
+            dominant_colors_list.extend([dominant_color_name, third_dominant_color_name])
+        else:
+            dominant_colors_list.extend([dominant_color_name, second_dominant_color_name])
+
+    dominant_colors_list = list(dict.fromkeys(dominant_colors_list))
+    str_dominant_colors_list = ", ".join(dominant_colors_list)
+
+    print(str_dominant_colors_list)
+
     # Return the result
     return jsonify({
         'dominant_color': dominant_color.tolist(),
-        'dominant_color_name': dominant_color_name,
+        'dominant_color_name': str_dominant_colors_list,
         'average_color': average_color.tolist(),
         'average_color_name': average_color_name,
         'pattern': pattern,
         'pattern_confidence': f"{confidence:.2f}%"
     })
-
 
 @app.route('/processed-image', methods=['GET'])
 def get_processed_image():
@@ -117,4 +197,4 @@ def get_processed_image():
         return jsonify({'error': 'Processed image not found'}), 404
 
 if __name__ == '__main__':
-    app.run(host='0.0.0.0', debug=True)
+    app.run(host='0.0.0.0', port=5000, debug=True)

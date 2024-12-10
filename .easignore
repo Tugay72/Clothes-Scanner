@@ -1,0 +1,35 @@
+# Node Modules
+node_modules/
+
+# Expo build directories
+.expo/
+android/
+ios/
+dist/
+
+# Logs and temporary files
+*.log
+*.tmp
+*.swp
+
+# Documentation and assets
+docs/
+*.md
+*.pdf
+*.psd
+*.ai
+
+# Test files
+__tests__/
+test/
+/backend/test.py
+/backend/tf_training.py
+
+
+# Personal and environment files
+.env
+*.local
+
+# Datasets
+/backend/datasets
+/backend/images

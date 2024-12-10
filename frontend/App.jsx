@@ -1,22 +1,21 @@
-import { StatusBar } from 'expo-status-bar';
 import React, {useState, useRef, useEffect} from 'react';
+import { StyleSheet, Text, TouchableOpacity, View, Image, Alert } from 'react-native';
 import * as Animatable from 'react-native-animatable';
+
 import axios from 'axios';
 
-import * as Speech from 'expo-speech';
-import translate from 'translate';
-
-
-import { StyleSheet, Text, TouchableOpacity, View, Image, Alert } from 'react-native';
-import { CameraView, useCameraPermissions, useMicrophonePermissions } from 'expo-camera';
 import * as MediaLibrary from 'expo-media-library';
+import { StatusBar } from 'expo-status-bar';
+import { CameraView, useCameraPermissions, useMicrophonePermissions } from 'expo-camera';
+import * as Speech from 'expo-speech';
 
-import CameraButton from './frontend/components/camera_button'
+import CameraButton from './components/camera_button'
 
+import translate from 'translate';
+import tr_dict from './turkish_localization';
 translate.engine = 'google';
 
 export default function App() {
-  
   
   const [cameraPermission, requestCameraPermission] = useCameraPermissions();
   const [microphonePermission, requestMicrophonePermission] = useMicrophonePermissions();
@@ -116,6 +115,9 @@ export default function App() {
         processImage(picture.uri); // Fonksiyona URI gönderiyoruz
       } catch (err) {
         console.log("Error while taking picture!", err);
+        Speech.speak('Fotoğraf çekerken bir hata oluştu', {
+          language: "tr-TR",
+        });
       }
     }
   };
@@ -192,15 +194,60 @@ export default function App() {
           pattern_confidence,
         } = response.data;
   
-        // İşlenen veriyi konuşma ve gösterim için kullanın
-        const mergedString = `
-          Average Color: (${average_color_name}),
-          Dominant Color: (${dominant_color_name}),
-          Pattern: ${pattern} (Confidence: ${pattern_confidence}%)
-        `.trim();
-  
-        const turkishText = await translate(mergedString, { to: "tr" });
-        Speech.speak(turkishText, {
+        // Speak and display processed data
+        // const mergedString = `
+        //   The dominant color of the clothing is: (${average_color_name}), 
+        //   while the average color is : (${dominant_color_name}). 
+        //   The pattern of the clothing is : ${pattern},
+        //   with the confidence of (${pattern_confidence}%)
+        //   `.trim();
+
+        // const mergedString2 = `
+        //   Average Color: (${average_color_name}),
+        //   Dominant Color: (${dominant_color_name}),
+        //   Pattern: ${pattern} (Confidence: ${pattern_confidence}%)
+        // `.trim();
+
+        const translated_average_color_name = tr_dict[average_color_name.toString()];
+        const translated_pattern = tr_dict[pattern.toString()];
+        let turkishString = ``;
+
+        if (dominant_color_name.split(",").length > 1) {
+          const colorsArray = dominant_color_name.split(/\s*,\s*/);
+          let newColorsArray = '';
+          for(const color of colorsArray){
+            let translatedColor = tr_dict[color.toString()];
+            newColorsArray += translatedColor + ' ve '
+          }
+          
+
+          newColorsArray = newColorsArray.slice(0, -4);
+          
+          console.log(newColorsArray)
+
+          turkishString = `
+            Kıyafetin dominant renkleri ${newColorsArray}
+            olmak üzere ortalama rengi: ${translated_average_color_name}. 
+            Kıyafetin deseni ${pattern_confidence} doğruluk payı ile ${translated_pattern}.
+          `.trim();
+
+        } else {
+          const translated_dominant_color_name = tr_dict[dominant_color_name.toString()];
+          turkishString = `
+            Kıyafetin dominant rengi: ${translated_dominant_color_name}
+            olmak üzere ortalama rengi: ${translated_average_color_name}. 
+            Kıyafetin deseni ${pattern_confidence} doğruluk payı ile ${translated_pattern}.
+          `.trim();
+        }
+
+
+        // const turkishText = await translate(translatedString, { to: "tr" });
+        // Speech.speak(turkishText, {
+        //   language: "tr-TR",
+        // });
+
+        console.log(turkishString);
+        Speech.speak(turkishString, {
           language: "tr-TR",
         });
   
@@ -288,8 +335,8 @@ const styles = StyleSheet.create({
 
   permissionContainer: {
     flex: 1,
-    justifyContent: 'center',  // Center content vertically
-    alignItems: 'center',  // Center content horizontally
+    justifyContent: 'center',
+    alignItems: 'center',
     backgroundColor: '#000',
   },
 
@@ -297,13 +344,13 @@ const styles = StyleSheet.create({
     fontSize: 24,
     color: 'black',
     fontWeight: 'bold',
-    textAlign: 'center',  // Ensure text is centered
+    textAlign: 'center',
   },
 
   introLogo: {
     width: 96,
     height: 52,
-    marginBottom: 30,  // Add some space below the logo to avoid it being cut off
+    marginBottom: 30,
   },
 
   topControlsContainer: {
