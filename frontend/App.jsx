@@ -69,7 +69,7 @@ export default function App() {
     return (
       <View style={styles.permissionContainer}>
         <Animatable.Image animation="fadeIn" iterationCount={1}></Animatable.Image>
-          <Image source={require('./assets/logo.png')} style={styles.introLogo}/>
+          <Image source={require('../assets/logo.png')} style={styles.introLogo}/>
       </View>
     );
   }
