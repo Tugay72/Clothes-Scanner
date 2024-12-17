@@ -7,7 +7,7 @@ export default tr_dict = {
     floral: "çiçeklidir",
     zigzag: "zigzaklıdır",
 
-    grey: "gri",
+    gray: "gri",
     black: "siyah",
     white: "beyaz",
     blue: "mavi",

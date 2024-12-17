@@ -6,6 +6,7 @@ node_modules/
 android/
 ios/
 dist/
+.git/
 
 # Logs and temporary files
 *.log
@@ -33,3 +34,5 @@ test/
 # Datasets
 /backend/datasets
 /backend/images
+
+/backend

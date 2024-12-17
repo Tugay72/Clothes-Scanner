@@ -1,5 +1,7 @@
+import threading
 from flask import Flask, request, jsonify, send_file
 import cv2
+import psutil
 import tensorflow as tf
 from tensorflow.keras.preprocessing.image import load_img, img_to_array  # type: ignore
 import numpy as np
@@ -9,6 +11,7 @@ from colornamer import get_color_from_rgb
 import time
 from io import BytesIO
 from PIL import Image
+from memory_profiler import profile
 
 base_color_mapping = {
     "red": "red",
@@ -37,65 +40,86 @@ base_color_mapping = {
     "firebrick": "red",
     "medium orchid": "purple",
     "dark sea green": "green",
-    "green blue": "blue",
+    "green blue": "green",
     "violet blue": "purple",
     "yellow green": "yellow",
-    "olive": "black",
+    "olive": "green",
     "sienna": "brown",
     "yellow orange": "yellow",
     "orange yellow": "orange",
     "blue green": "blue",
     "red orange": "red",
     "green yellow": "green",
-    "violet red": "red",
+    "violet red": "purple",
     "grey": "gray",
     "blue violet": "purple",
     "orange red": "orange",
     "yellow ochre": "yellow"
 }
 
-
 app = Flask(__name__)
 
 PROCESSED_IMAGE_DIR = 'images'
 os.makedirs(PROCESSED_IMAGE_DIR, exist_ok=True)
 
-# Load pattern recognition model
-MODEL_PATH = "pattern_recognition_best_model.keras"
-if not os.path.exists(MODEL_PATH):
-    raise FileNotFoundError(f"Model file not found: {MODEL_PATH}")
+# Load TFLite model
+TFLITE_MODEL_PATH = "pattern_recognition_model.tflite"
+if not os.path.exists(TFLITE_MODEL_PATH):
+    raise FileNotFoundError(f"TFLite model file not found: {TFLITE_MODEL_PATH}")
 
-model = tf.keras.models.load_model(MODEL_PATH)
+# Initialize the TFLite interpreter
+interpreter = tf.lite.Interpreter(model_path=TFLITE_MODEL_PATH)
+interpreter.allocate_tensors()
+
+# Get input and output details for TFLite model
+input_details = interpreter.get_input_details()
+output_details = interpreter.get_output_details()
+
 classes = ['checkered', 'dotted', 'floral', 'solid', 'striped', 'zigzag']
 
 @app.route('/')
 def home():
     return 'Welcome!'
 
-def get_closest_color_name(rgb_color):
+def print_memory_usage():
+    process = psutil.Process()
+    while True:
+        mem_info = process.memory_info()
+        memory_usage_mb = mem_info.rss / (1024 * 1024)  # Convert to MB
+        print(f"Memory Usage: {memory_usage_mb:.2f} MB")
+        time.sleep(2)
 
-    # Check for black
+@app.route('/memory-usage', methods=['GET'])
+def memory_usage():
+    process = psutil.Process()
+    mem_info = process.memory_info()  # Memory info of the current process
+    memory_usage_mb = mem_info.rss / (1024 * 1024)  # Convert to MB (Resident Set Size)
+    return jsonify({"memory_usage_mb": memory_usage_mb})
+
+def get_closest_color_name(rgb_color):
     if all(value <= 60 for value in rgb_color):
         return "black"
 
-    # Check for white
     if all(value >= 240 for value in rgb_color):
         return "white"
 
-    # Get the color info using colornamer for other cases
     color_info = get_color_from_rgb(rgb_color)
-    # Get the base color from the color family
-    color_family = color_info['color_family'].lower()  # Convert to lowercase for consistency
-    base_color = base_color_mapping.get(color_family, color_family)  # Default to original if no match
-
-    return base_color;
-
+    color_family = color_info['color_family'].lower()
+    return base_color_mapping.get(color_family, color_family)
 
 def predict_pattern(pil_image):
-    # Convert PIL Image to NumPy array and preprocess for the model
+    # Convert PIL Image to input size and normalize
     img_array = np.array(pil_image.resize((128, 128))) / 255.0
-    img_array = np.expand_dims(img_array, axis=0)  # Add batch dimension
-    predictions = model.predict(img_array)  # Model prediction
+    img_array = np.expand_dims(img_array, axis=0).astype(np.float32)
+
+    # Set input tensor for TFLite model
+    interpreter.set_tensor(input_details[0]['index'], img_array)
+
+    # Run inference
+    interpreter.invoke()
+
+    # Get output tensor
+    predictions = interpreter.get_tensor(output_details[0]['index'])
     predicted_class = classes[np.argmax(predictions)]  # Predicted class
     confidence = np.max(predictions) * 100  # Confidence score
     return predicted_class, confidence
@@ -186,15 +210,8 @@ def process_image_route():
         'pattern_confidence': f"{confidence:.2f}%"
     })
 
-@app.route('/processed-image', methods=['GET'])
-def get_processed_image():
-    processed_image_path = os.path.join(PROCESSED_IMAGE_DIR, 'processed_image.jpg')
-    
-    # Check if the processed image exists
-    if os.path.exists(processed_image_path):
-        return send_file(processed_image_path, mimetype='image/jpeg')
-    else:
-        return jsonify({'error': 'Processed image not found'}), 404
 
 if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=5000, debug=True)
+    threading.Thread(target=print_memory_usage, daemon=True).start()
+    print("Starting Flask server...")
+    app.run(host='0.0.0.0', port=5000, debug=False)
