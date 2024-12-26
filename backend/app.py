@@ -1,17 +1,13 @@
-import threading
+
 from flask import Flask, request, jsonify, send_file
 import cv2
-import psutil
 import tensorflow as tf
 from tensorflow.keras.preprocessing.image import load_img, img_to_array  # type: ignore
 import numpy as np
 import os
-from math import sqrt
 from colornamer import get_color_from_rgb
-import time
 from io import BytesIO
 from PIL import Image
-from memory_profiler import profile
 
 base_color_mapping = {
     "red": "red",
@@ -81,26 +77,11 @@ classes = ['checkered', 'dotted', 'floral', 'solid', 'striped', 'zigzag']
 def home():
     return 'Welcome!'
 
-def print_memory_usage():
-    process = psutil.Process()
-    while True:
-        mem_info = process.memory_info()
-        memory_usage_mb = mem_info.rss / (1024 * 1024)  # Convert to MB
-        print(f"Memory Usage: {memory_usage_mb:.2f} MB")
-        time.sleep(2)
-
-@app.route('/memory-usage', methods=['GET'])
-def memory_usage():
-    process = psutil.Process()
-    mem_info = process.memory_info()  # Memory info of the current process
-    memory_usage_mb = mem_info.rss / (1024 * 1024)  # Convert to MB (Resident Set Size)
-    return jsonify({"memory_usage_mb": memory_usage_mb})
-
 def get_closest_color_name(rgb_color):
     if all(value <= 60 for value in rgb_color):
         return "black"
 
-    if all(value >= 240 for value in rgb_color):
+    if all(value >= 230 for value in rgb_color):
         return "white"
 
     color_info = get_color_from_rgb(rgb_color)
@@ -212,6 +193,5 @@ def process_image_route():
 
 
 if __name__ == '__main__':
-    threading.Thread(target=print_memory_usage, daemon=True).start()
     print("Starting Flask server...")
     app.run(host='0.0.0.0', port=5000, debug=False)

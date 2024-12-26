@@ -191,6 +191,20 @@ export default function App() {
           pattern = "unknown",
           pattern_confidence = "0.00",
         } = response.data;
+
+        // Alert.alert(
+        //     "Color & Pattern Analysis",
+        //     `Average Color: ${average_color_name?.toString()}\n
+        //     Dominant Color: ${dominant_color_name?.toString()}\n
+        //     Pattern: ${pattern}\n 
+        //     Confidence: ${pattern_confidence}`,
+        //     [
+        //       {
+        //         text: "OK",
+        //         style: "default",
+        //       },
+        //     ]
+        //   );
   
         const translated_average_color_name = tr_dict[average_color_name?.toString()] || average_color_name;
         const translated_pattern = tr_dict[pattern?.toString()] || pattern;
